@@ -42,18 +42,16 @@ This project uses Conda for environment management.
     conda activate gnn_sagin
     ```
 
-3.  **Install the required libraries:**
+3.  **Install the required libraries from `requirements.txt`:**
     ```bash
-    # Install PyTorch compatible with CUDA 12.1
-    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-    
-    # Install GNN libraries and other dependencies
-    pip install torch_geometric pandas matplotlib seaborn skyfield tqdm
+    pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
     ```
 
 ---
 
 ## ⚡ Running the Experiments
+
+The project is structured to support multiple PoCs. Each PoC has its own dedicated training script.
 
 ### PoC #1: Link Quality Prediction
 
@@ -61,21 +59,21 @@ This experiment builds a hybrid GNN-GRU model to predict the distance (as a prox
 
 **Step 1: Generate Simulation Data**
 
-Run the following script to simulate the orbits of a satellite constellation for 24 hours and save the network graph snapshots.
+This script simulates the orbits of a satellite constellation and saves the network graph snapshots. This data is shared across multiple PoCs.
 
 ```bash
-python src/data_simulation.py
+python -m src.common.data_simulation
 ```
 *The resulting data file will be saved at `data/processed/sagin_simulation_dataset.pt`.*
 
 **Step 2: Train the Model**
 
-Execute the main training script. This will automatically load the data, build the model, run the training loop, and save the results.
+Execute the training script for PoC #1. This will automatically load the data, build the model, run the training loop, and save the results.
 
 ```bash
-python -m src.train
+python -m src.poc1_link_prediction.train
 ```
-*Upon completion, the trained model will be saved as `gnn_gru_predictor.pth`, and result plots will be saved as `.png` files.*
+*Upon completion, the trained model will be saved as `gnn_gru_predictor.pth`, and result plots will be saved as `.png` files in the project's root directory.*
 
 ### PoC #1 Results
 
@@ -114,18 +112,20 @@ docker pull haodpsut/gnn-for-sagin:poc1
 
 **Step 2: Run the Experiment**
 
-The following command will start a container, grant it access to all GPUs, run the training script, and automatically remove the container once finished. The project directory inside the container is `/app`. If you want to access the saved model or plots, you can mount a volume.
+The default command for the container is to run the training for PoC #1.
 
 *   **To run the full training:**
     ```bash
     docker run -it --rm --gpus all haodpsut/gnn-for-sagin:poc1
     ```
+    *(Note: The `Dockerfile` is configured to run PoC #1's training script by default.)*
 
 *   **To run and save outputs to your current directory:**
+    The project directory inside the container is `/app`. To access outputs, you can mount a volume from your host machine to `/app`.
     ```bash
-    docker run -it --rm --gpus all -v $(pwd):/app/outputs haodpsut/gnn-for-sagin:poc1
+    docker run -it --rm --gpus all -v $(pwd):/app haodpsut/gnn-for-sagin:poc1
     ```
-    *(After running, the `.pth` model and `.png` plots will appear in a new `outputs` folder on your machine.)*
+    *(After running, the `.pth` model and `.png` plots will appear in your project directory on your machine.)*
 
 *   **To explore the container's shell:**
     ```bash
