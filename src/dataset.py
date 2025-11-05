@@ -1,60 +1,100 @@
 import torch
 from torch.utils.data import Dataset
 
-class LinkPredictionDataset(Dataset):
+class GraphSequenceDataset(Dataset):
     """
-    Dataset cho bài toán dự đoán thuộc tính của cạnh (link) trong tương lai.
-    Input: Đồ thị tại thời điểm t.
-    Target: Thuộc tính của các cạnh (edge_attr) tại thời điểm t+1.
+    Dataset cho bài toán dự đoán trên chuỗi đồ thị.
+    Mỗi sample là một chuỗi các đồ thị và target là thuộc tính cạnh của đồ thị tiếp theo.
+    - Input: Một chuỗi `sequence_length` đồ thị [G_t, G_{t+1}, ..., G_{t+N-1}]
+    - Target: Thuộc tính cạnh (edge_attr) của đồ thị G_{t+N}
     """
-    def __init__(self, graph_snapshots):
+    def __init__(self, graph_snapshots, sequence_length=4):
         self.snapshots = graph_snapshots
+        self.seq_len = sequence_length
+        # `__len__` sẽ là tổng số snapshot trừ đi độ dài chuỗi (cho input) và 1 (cho target)
+        self.num_samples = len(self.snapshots) - self.seq_len
 
     def __len__(self):
-        # Chúng ta cần t và t+1, nên độ dài sẽ là N-1
-        return len(self.snapshots) - 1
+        return self.num_samples
 
     def __getitem__(self, idx):
-        graph_t0 = self.snapshots[idx]
-        graph_t1 = self.snapshots[idx + 1]
+        # Một sample bao gồm một chuỗi các đồ thị và một target.
+        # Chuỗi input bắt đầu từ `idx` và kéo dài `self.seq_len`
+        # Target là đồ thị ngay sau chuỗi input.
         
-        # Tạo một "khóa" duy nhất cho mỗi cạnh (node_u, node_v)
-        edges_t0 = {tuple(sorted(edge)) for edge in graph_t0.edge_index.t().tolist()}
-        edges_t1 = {tuple(sorted(edge)) for edge in graph_t1.edge_index.t().tolist()}
-        common_edges = sorted(list(edges_t0.intersection(edges_t1)))
+        input_sequence_graphs = self.snapshots[idx : idx + self.seq_len]
+        target_graph = self.snapshots[idx + self.seq_len]
         
-        if not common_edges or len(common_edges) == 0:
-            return None # Trả về None nếu không có cạnh chung
-
-        # Lấy chỉ số và thuộc tính cho các cạnh chung
-        edge_map_t0 = {tuple(sorted(edge)): i for i, edge in enumerate(graph_t0.edge_index.t().tolist()) if tuple(sorted(edge)) in edges_t0}
-        edge_map_t1 = {tuple(sorted(edge)): i for i, edge in enumerate(graph_t1.edge_index.t().tolist()) if tuple(sorted(edge)) in edges_t1}
-
-        # Lọc ra các cạnh thực sự tồn tại
-        common_edges_in_t0 = [edge for edge in common_edges if edge in edge_map_t0]
-        common_edges_in_t1 = [edge for edge in common_edges if edge in edge_map_t1]
+        # --- Xử lý Target ---
+        # Chúng ta cần xác định các cạnh tồn tại trong đồ thị cuối cùng của chuỗi
+        # và đồ thị target để có thể so sánh.
         
-        final_common_edges = sorted(list(set(common_edges_in_t0).intersection(set(common_edges_in_t1))))
+        last_graph_in_sequence = input_sequence_graphs[-1]
+        
+        edges_last = {tuple(sorted(edge)) for edge in last_graph_in_sequence.edge_index.t().tolist()}
+        edges_target = {tuple(sorted(edge)) for edge in target_graph.edge_index.t().tolist()}
+        
+        common_edges = sorted(list(edges_last.intersection(edges_target)))
+        
+        if not common_edges:
+            return None, None, None # Trả về None nếu không có cạnh chung
 
-        if not final_common_edges:
-            return None
+        # Lấy index của các cạnh chung trong đồ thị target
+        edge_map_target = {tuple(sorted(edge)): i for i, edge in enumerate(target_graph.edge_index.t().tolist())}
+        common_edge_indices_target = [edge_map_target[edge] for edge in common_edges]
+        
+        # Target tensor
+        target_edge_attr = target_graph.edge_attr[torch.tensor(common_edge_indices_target, dtype=torch.long)]
+
+        # --- Xử lý Input ---
+        # Chúng ta cần đảm bảo tất cả các đồ thị trong chuỗi input đều có chung
+        # một tập hợp cạnh (là `common_edges`) để đưa vào model một cách nhất quán.
+        
+        processed_sequence = []
+        for graph in input_sequence_graphs:
+            # Tạo một đồ thị mới chỉ chứa các cạnh chung
+            new_graph = graph.clone()
             
-        common_edge_indices_t0 = [edge_map_t0[edge] for edge in final_common_edges]
-        common_edge_indices_t1 = [edge_map_t1[edge] for edge in final_common_edges]
+            # Tạo map cho đồ thị hiện tại trong chuỗi
+            edge_map_current = {tuple(sorted(edge)): i for i, edge in enumerate(graph.edge_index.t().tolist())}
+            
+            # Kiểm tra xem tất cả common_edges có tồn tại trong đồ thị này không
+            current_edges_set = set(edge_map_current.keys())
+            if not all(edge in current_edges_set for edge in common_edges):
+                # Nếu một đồ thị trong chuỗi thiếu mất một cạnh chung, sample này không hợp lệ
+                return None, None, None
 
-        input_graph = graph_t0.clone()
-        input_graph.edge_index = torch.tensor(final_common_edges, dtype=torch.long).t().contiguous()
-        input_graph.edge_attr = graph_t0.edge_attr[torch.tensor(common_edge_indices_t0, dtype=torch.long)]
-        
-        target_edge_attr = graph_t1.edge_attr[torch.tensor(common_edge_indices_t1, dtype=torch.long)]
-        
-        return input_graph, target_edge_attr
+            common_edge_indices_current = [edge_map_current[edge] for edge in common_edges]
+            
+            new_graph.edge_index = torch.tensor(common_edges, dtype=torch.long).t().contiguous()
+            new_graph.edge_attr = graph.edge_attr[torch.tensor(common_edge_indices_current, dtype=torch.long)]
+            
+            processed_sequence.append(new_graph)
 
-def collate_fn(batch):
-    """Hàm tùy chỉnh để xử lý batch, loại bỏ các sample None."""
-    batch = [(g, t) for g, t in batch if g is not None]
+        # `common_edges` bây giờ là cấu trúc cạnh chung cho toàn bộ sample
+        common_edge_index = torch.tensor(common_edges, dtype=torch.long).t().contiguous()
+
+        return processed_sequence, common_edge_index, target_edge_attr
+
+
+def sequence_collate_fn(batch):
+    """
+    Hàm collate tùy chỉnh cho dataset chuỗi.
+    """
+    # Lọc các sample không hợp lệ
+    batch = [b for b in batch if b[0] is not None]
     if not batch:
-        return None, None
+        return None, None, None
+        
+    # Tách các thành phần
+    sequences, edge_indices, targets = zip(*batch)
     
-    graphs, targets = zip(*batch)
-    return list(graphs), torch.cat(targets, dim=0)
+    # Batch các chuỗi và target
+    # Lưu ý: `sequences` là một list của các list đồ thị
+    # `edge_indices` là một list các tensor edge_index
+    # `targets` là một list các tensor target
+    
+    # Chúng ta sẽ xử lý việc batching các đồ thị bên trong vòng lặp training
+    # để đơn giản hóa.
+    
+    return sequences, edge_indices, targets

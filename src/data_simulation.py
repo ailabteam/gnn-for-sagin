@@ -102,7 +102,7 @@ def generate_simulation_data(duration_hours=1, time_step_minutes=1):
 
 if __name__ == '__main__':
     # Chạy thử và lưu dữ liệu
-    dataset = generate_simulation_data(duration_hours=2, time_step_minutes=2)
+    dataset = generate_simulation_data(duration_hours=24, time_step_minutes=2)
     
     # Lưu dataset vào file
     # Đây sẽ là input cho quá trình training của chúng ta
