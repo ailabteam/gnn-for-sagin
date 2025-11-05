@@ -99,7 +99,7 @@ For a more visual explanation of the problem and the results, please watch the v
 
 ---
 
-🐳 Deployment with Docker
+🐳 **Deployment with Docker**
 
 To ensure perfect reproducibility, you can run the entire experiment using the pre-built Docker image. This is the recommended way to run the PoC.
 
