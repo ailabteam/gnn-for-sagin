@@ -99,21 +99,37 @@ For a more visual explanation of the problem and the results, please watch the v
 
 ---
 
-## 🐳 Deployment with Docker (Optional)
+🐳 Deployment with Docker
+To ensure perfect reproducibility, you can run the entire experiment using the pre-built Docker image. This is the recommended way to run the PoC.
 
-To ensure full reproducibility and ease of deployment, a pre-built Docker image for this project is available.
+**Prerequisites:**
+*   Docker
+*   NVIDIA Container Toolkit (to allow Docker access to the GPU)
 
-1.  **Pull the image from Docker Hub:**
+**Step 1: Pull the image from Docker Hub**
+```bash
+docker pull haodpsut/gnn-for-sagin:poc1
+```
+
+**Step 2: Run the Experiment**
+
+The following command will start a container, grant it access to all GPUs, run the training script, and automatically remove the container once finished. The project directory inside the container is `/app`. If you want to access the saved model or plots, you can mount a volume.
+
+*   **To run the full training:**
     ```bash
-    docker pull haodpsut/gnn-for-sagin:poc1
+    docker run -it --rm --gpus all haodpsut/gnn-for-sagin:poc1
     ```
-    *(Docker Hub link to be updated upon image build)*
 
-2.  **Run the container:**
+*   **To run and save outputs to your current directory:**
     ```bash
-    # Commands to run the container and execute training will be updated here
+    docker run -it --rm --gpus all -v $(pwd):/app/outputs haodpsut/gnn-for-sagin:poc1
     ```
+    *(After running, the `.pth` model and `.png` plots will appear in a new `outputs` folder on your machine.)*
 
+*   **To explore the container's shell:**
+    ```bash
+    docker run -it --rm --gpus all --entrypoint /bin/bash haodpsut/gnn-for-sagin:poc1
+    ```
 ---
 
 ## 🤝 Contributing & Future Work
