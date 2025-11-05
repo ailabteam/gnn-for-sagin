@@ -1,0 +1,12 @@
+# GNN and ML Core
+torch
+torchvision
+torchaudio
+torch_geometric
+
+# Data Simulation and Processing
+pandas
+matplotlib
+seaborn
+skyfield
+tqdm
