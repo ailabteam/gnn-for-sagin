@@ -32,7 +32,7 @@ This project uses Conda for environment management.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/gnn-for-sagin.git
+    git clone https://github.com/ailabteam/gnn-for-sagin.git
     cd gnn-for-sagin
     ```
 
@@ -95,7 +95,7 @@ The scatter plot of predicted vs. actual values on the validation set shows that
 
 For a more visual explanation of the problem and the results, please watch the video demo:
 
-➡️ **[Watch the Demo on YouTube](YOUTUBE_LINK_TO_BE_UPDATED_HERE)**
+➡️ **[Watch the Demo on YouTube](https://youtu.be/Voqlf9fgnGk)**
 
 ---
 
@@ -105,7 +105,7 @@ To ensure full reproducibility and ease of deployment, a pre-built Docker image 
 
 1.  **Pull the image from Docker Hub:**
     ```bash
-    docker pull yourdockerhub_username/gnn-for-sagin:poc1
+    docker pull haodpsut/gnn-for-sagin:poc1
     ```
     *(Docker Hub link to be updated upon image build)*
 
